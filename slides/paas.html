@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+
+  <head>
+    <meta charset="utf-8">
+
+    <title>Platform.sh | PaaS and data</title>
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <link rel="stylesheet" href="css/reveal.min.css">
+    <link rel="stylesheet" href="css/theme/moon.css" id="theme">
+
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+
+    <!-- If the query includes 'print-pdf', include the PDF print sheet -->
+    <script>
+      if( window.location.search.match( /print-pdf/gi ) ) {
+        var link = document.createElement( 'link' );
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = 'css/print/pdf.css';
+        document.getElementsByTagName( 'head' )[0].appendChild( link );
+      }
+    </script>
+
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+  </head>
+
+  <body>
+    <div class="reveal">
+      <div class="slides">
+
+        <section>
+          <img src="platform.png" width="250" height="250" class="blank" />
+          <h1>Platform.sh
+            <small>retour d'expérience</small>
+          </h1>
+        </section>
+
+        <section class="about">
+          <img src="dt.png" class="picture" alt=""/>
+          <h2>Damien Tournoud</h2>
+          <ul>
+            <li><strong>@damz</strong> sur Twitter ;</li>
+            <li>CTO @ <a href="http://commerceguys.com/">Commerce Guys</a> ;</li>
+            <li><strong>Polyglotte:</strong> Python, Go, PHP, Javascript.</li>
+          </ul>
+        </section>
+
+        <section class="about">
+          <img src="cg.png" class="picture" alt=""/>
+          <h2>Commerce Guys</h2>
+          <ul>
+            <li>Startup financée de 3 ans avec 60 employés entre la France, les Etats-Unis et l'Angleterre.</li>
+            <li>Editeur de <strong>Drupal Commerce</strong>, <strong>40,000 sites</strong> (Cartier, Eurostar, Guerlain, Lush, Stanford, NBC Universal...).
+          </ul>
+        </section>
+
+        <section>
+          <section>
+            <h2>Une idée folle</h2>
+            <p class="list">Construire le <strong>PaaS du continuous delivery</strong>:</p>
+            <ul>
+              <li>Continuum développement - production ;</li>
+              <li>Environnements dynamiques ;</li>
+              <li>Duplication efficace d'environnements.</li>
+            </ul>
+          </section>
+
+          <section>
+            <img src="basics.png" class="blank" alt=""/>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h1>Une architecture à base de micro-conteneurs</h1>
+          </section>
+
+          <section>
+            <h2>Le cluster comme unité de base</h2>
+            <img src="cluster.png" class="blank" width="500" alt="" />
+            <p class="center">L'unité de base est le <em>cluster</em>, un graphe orienté (acyclique) de <em>services</em>.</p>
+          </section>
+
+          <section>
+            <h2>Modifications de topologie</h2>
+            <p class="list">Les cinq opérations fondamentales:</p>
+            <ul>
+              <li><strong>create</strong>,</li>
+              <li><strong>update</strong>,</li>
+              <li><strong>delete</strong>,</li>
+              <li><strong>backup</strong>,</li>
+              <li><strong>restore</strong>,</li>
+              <li><strong>duplicate</strong>.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>D'où une série de contraintes</h2>
+            <ul>
+              <li>Gestion de <strong>chorégraphies</strong> entre serveurs ;</li>
+              <li><strong>Exclusion</strong> des opérations incompatibles entre elles ;</li>
+              <li><strong>Parallélisation</strong> des opérations parallèlisables ;</li>
+              <li><strong>Stockage</strong> centralisé de l'état des différents éléments (volumes, conteneurs, etc.).</li>
+            </ul>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h1>Protean</h1>
+            <p>Framework de coordination d'objets distribués.</p>
+          </section>
+
+          <section>
+            <h2>Modèle</h2>
+            <p class="list">Une hiérarchie d'objets. Chaque objet:</p>
+            <ul>
+              <li>expose un <strong>état public</strong> (lecture seule) ;</li>
+              <li>est <strong>géré par un (et un seul) client</strong>, seul en charge de son <strong>état privé</strong> ;</li>
+              <li>expose des <strong>méthodes</strong>, qui peuvent être appelées à distance.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>En pratique</h2>
+            <p class="list">Un framework:</p>
+            <ul>
+              <li>écrit en <strong>Python</strong> ;</li>
+              <li>abstrait, mais dont l'implémentation par défaut s'appuie sur <strong>Zookeeper</strong> ;</li>
+              <li>(quasi-)<strong>transparent</strong> du point de vue du développeur.</li>
+            </ul>
+          </section>
+
+          <section>
+<pre><code class="python" data-trim contenteditable>
+class TestObject(BaseObject):
+    property1 = ObjectProperty("property1", title="Property 1")
+    property2 = ObjectProperty("property2", title="Property 2")
+
+    CONSTANT = "constant"
+
+    @remote()
+    def remote_method(self):
+        return "Test"
+
+    @remote()
+    def mutable_method(self):
+        self.property2 = "toto2"
+
+    @remote()
+    def exception_method(self):
+        raise Exception("Test exception")
+</code></pre>
+          </section>
+
+          <section>
+            <h2>Consistance</h2>
+            <p class="center">La communication entre objets dans Protean est
+               intermédiée par <em>Zookeeper</em>,
+               et offre ainsi une garantie strict d'ordre.</p>
+          </section>
+
+          <section>
+            <h2>Exclusion</h2>
+            <ul>
+              <li>Chaque méthode peut préciser les <strong>verrous</strong> dont elle à besoin ;</li>
+              <li>Les verrous sont <strong>ré-entrants</strong> de manière globale ;</li>
+              <li>Les verrous sont <strong>auditables</strong>.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>D'où on vient ?</h2>
+            <ul>
+              <li>La première version basée sur du RPC ;</li>
+              <li>Inspiration: Machines à état répliquées (ConCoord), RAFT, etc.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h2>La suite</h2>
+            <ul>
+              <li>Se débarrasser de <strong>Zookeeper</strong> ;</li>
+              <li>Re-implémenter le stockage comme une <strong>base de données spécifique</strong>
+                écrite en Go et s'appuyant sur Raft.</li>
+            </ul>
+          </section>
+        </section>
+
+        <section>
+          <section>
+            <h1>Quoi d'autre?</h1>
+          </section>
+
+          <section>
+            <h2>Nuntius</h2>
+            <p class="center">Un proxy dynamique <strong>HTTP, HTTPS, SPDY</strong> écrit en Go.</p>
+          </section>
+
+          <section>
+            <h2>Platform Git</h2>
+            <p class="center">Un serveur Git spécifique qui expose <strong>le même API</strong>
+               via HTTP (REST), SSH (CLI) et SSH (Git). Écrit en Python, basé sur Gevent, Dulwich et Pyramid.</p>
+          </section>
+
+          <section>
+            <h2>Sshhh</h2>
+            <p class="center">Un <strong>proxy SSH</strong> qui route les connections entrantes sur la base
+               du nom d'utilisateur. Écrit en Python/Twisted (*erm*).</p>
+          </section>
+        </section>
+
+        <section>
+          <h1>Merci.</h1>
+        </section>
+
+        <section>
+          <h2>On recrute</h2>
+          <ul>
+            <li>Vous aimez les <strong>systèmes distribués</strong> ?</li>
+            <li>Vous voulez faire des choses vraiment intéressantes avec <strong>Python</strong> et du <strong>Go</strong> ?</li>
+            <li>Vous aimez travailler au sein d'une équipe distribuée et internationale ?</li>
+            <li style="list-style: none; margin-top: 1em;"><strong>Venez me voir</strong>, ou essayer d'attraper <strong>Ori Pekelman</strong>.</p>
+          </ul>
+        </section>
+
+      </div>
+
+    </div>
+
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.min.js"></script>
+
+    <script>
+
+      // Full list of configuration options available here:
+      // https://github.com/hakimel/reveal.js#configuration
+      Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        slideNumber: true,
+        center: true,
+
+        transition: 'zoom',
+        transitionSpeed: 'fast',
+
+        // Parallax scrolling
+        // parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+        // parallaxBackgroundSize: '2100px 900px',
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+          { src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+          { src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+          { src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+          { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+          { src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+          { src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+        ]
+      });
+
+    </script>
+
+  </body>
+</html>
